@@ -1,12 +1,15 @@
-import json
 import os
+import json
 from pathlib import Path
-from datetime import date
+from datetime import datetime
 
 import requests
 import streamlit as st
 
-# -------------------- PAGE SETUP --------------------
+# ==========================================================
+# 1. PAGE CONFIGURATION
+# ==========================================================
+
 st.set_page_config(
     page_title="GLOW NEST | Candle Studio",
     page_icon="🕯️",
@@ -16,1331 +19,1700 @@ st.set_page_config(
 
 DATA_FILE = Path(__file__).with_name("glow_nest_data.json")
 
+# ==========================================================
+# 2. JARVIS AI API CONFIGURATION
+# ==========================================================
 
-# -------------------- API SETTINGS --------------------
-def get_setting(name, default=""):
-    """Read Streamlit Secrets first, then environment variables."""
-    try:
-        value = st.secrets.get(name, None)
-        if value not in (None, ""):
-            return str(value)
-    except Exception:
-        pass
+# Paste your NEW OpenRouter API key between the quotes.
+# Do not upload this key to a public GitHub repository.
 
-    return os.getenv(name, default)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
+JARVIS_MODEL = "qwen/qwen3-4b:free"
+JARVIS_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-JARVIS_URL = get_setting(
-    "JARVIS_BASE_URL",
-    "https://openrouter.ai/api/v1",
-).rstrip("/")
+# ==========================================================
+# 3. DEFAULT BUSINESS DATA
+# ==========================================================
 
-JARVIS_MODEL = get_setting(
-    "JARVIS_MODEL",
-    "qwen/qwen3-4b:free",
-)
-
-
-# -------------------- DEFAULT DATA --------------------
 DEFAULT_DATA = {
     "products": [
         {
+            "id": 1,
             "name": "Amber Glow",
-            "category": "Signature",
-            "price": 18.50,
+            "category": "Warm & Woody",
+            "price": 18.00,
             "cost": 7.00,
-            "stock": 24,
-            "image": "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=900&q=85",
+            "stock": 25,
+            "description": "A warm amber fragrance for cosy evenings.",
         },
         {
+            "id": 2,
             "name": "Vanilla Cloud",
-            "category": "Soft & Sweet",
+            "category": "Sweet & Soft",
             "price": 16.00,
             "cost": 6.00,
-            "stock": 18,
-            "image": "https://images.unsplash.com/photo-1602874801007-bd458bb1b8b6?auto=format&fit=crop&w=900&q=85",
+            "stock": 30,
+            "description": "A soft and comforting vanilla fragrance.",
         },
         {
+            "id": 3,
             "name": "Midnight Cedar",
-            "category": "Woody",
+            "category": "Wood & Earth",
             "price": 22.00,
             "cost": 9.00,
-            "stock": 9,
-            "image": "https://images.unsplash.com/photo-1602523961358-f9f03dd557db?auto=format&fit=crop&w=900&q=85",
+            "stock": 15,
+            "description": "A rich cedarwood fragrance for peaceful nights.",
         },
         {
+            "id": 4,
             "name": "Rose Ritual",
             "category": "Floral",
-            "price": 19.50,
-            "cost": 7.50,
-            "stock": 14,
-            "image": "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=900&q=85",
+            "price": 19.00,
+            "cost": 8.00,
+            "stock": 20,
+            "description": "A beautiful floral fragrance with rose notes.",
         },
     ],
     "orders": [
         {
-            "customer": "Emma L.",
+            "id": 1001,
+            "customer": "Emma",
             "product": "Amber Glow",
-            "qty": 2,
-            "status": "Preparing",
-            "created": str(date.today()),
-            "total": 37.00,
+            "quantity": 2,
+            "total": 36.00,
+            "status": "Completed",
+            "date": "2026-10-20",
         },
         {
-            "customer": "Sofia M.",
+            "id": 1002,
+            "customer": "Sofia",
             "product": "Vanilla Cloud",
-            "qty": 1,
-            "status": "Ready to ship",
-            "created": str(date.today()),
+            "quantity": 1,
             "total": 16.00,
+            "status": "Processing",
+            "date": "2026-10-21",
         },
         {
-            "customer": "Laura K.",
-            "product": "Midnight Cedar",
-            "qty": 1,
-            "status": "New",
-            "created": str(date.today()),
-            "total": 22.00,
+            "id": 1003,
+            "customer": "Laura",
+            "product": "Rose Ritual",
+            "quantity": 3,
+            "total": 57.00,
+            "status": "Pending",
+            "date": "2026-10-22",
         },
     ],
-    "employees": [
+    "team": [
         {
-            "name": "Employee 1",
-            "role": "Candle Making",
-            "task": "Prepare today's candle batch",
+            "id": 1,
+            "name": "Team Member 1",
+            "role": "Production",
+            "task": "Prepare candle batches",
             "status": "In progress",
         },
         {
-            "name": "Employee 2",
-            "role": "Packing",
-            "task": "Pack completed candle orders",
+            "id": 2,
+            "name": "Team Member 2",
+            "role": "Packaging",
+            "task": "Pack customer orders",
             "status": "Pending",
         },
         {
-            "name": "Employee 3",
-            "role": "Order Management",
-            "task": "Check new customer orders",
+            "id": 3,
+            "name": "Team Member 3",
+            "role": "Marketing",
+            "task": "Prepare social media content",
             "status": "In progress",
         },
         {
-            "name": "Employee 4",
-            "role": "Stock Management",
-            "task": "Check low-stock products",
-            "status": "Pending",
-        },
-        {
-            "name": "Employee 5",
-            "role": "Customer Support",
-            "task": "Reply to customer messages",
+            "id": 4,
+            "name": "Team Member 4",
+            "role": "Inventory",
+            "task": "Check stock levels",
             "status": "Completed",
+        },
+        {
+            "id": 5,
+            "name": "Team Member 5",
+            "role": "Customer Service",
+            "task": "Reply to customer messages",
+            "status": "Pending",
         },
     ],
 }
 
+# ==========================================================
+# 4. LOAD AND SAVE DATA
+# ==========================================================
 
-# -------------------- LOAD AND SAVE DATA --------------------
 def load_data():
-    if DATA_FILE.exists():
-        try:
-            saved = json.loads(
-                DATA_FILE.read_text(encoding="utf-8")
-            )
+    if not DATA_FILE.exists():
+        save_data(DEFAULT_DATA)
+        return json.loads(json.dumps(DEFAULT_DATA))
 
-            for key, value in DEFAULT_DATA.items():
-                saved.setdefault(key, value)
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as file:
+            loaded_data = json.load(file)
 
-            return saved
+        for key, default_value in DEFAULT_DATA.items():
+            if key not in loaded_data:
+                loaded_data[key] = json.loads(json.dumps(default_value))
 
-        except (json.JSONDecodeError, OSError):
-            pass
+        return loaded_data
 
-    return json.loads(json.dumps(DEFAULT_DATA))
+    except (OSError, json.JSONDecodeError):
+        return json.loads(json.dumps(DEFAULT_DATA))
 
 
-if "data" not in st.session_state:
-    st.session_state.data = load_data()
+def save_data(data):
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=4, ensure_ascii=False)
+    except OSError as error:
+        st.error(f"Unable to save data: {error}")
+
+
+if "business_data" not in st.session_state:
+    st.session_state.business_data = load_data()
 
 if "page" not in st.session_state:
     st.session_state.page = "Overview"
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "jarvis_messages" not in st.session_state:
+    st.session_state.jarvis_messages = [
+        {
+            "role": "assistant",
+            "content": (
+                "Hello! I am Jarvis, our GLOW NEST business assistant. "
+                "I can help with marketing, candle ideas, pricing, "
+                "sales, and business planning. What would you like help with?"
+            ),
+        }
+    ]
 
-data = st.session_state.data
+data = st.session_state.business_data
 
 
-def save_data():
-    DATA_FILE.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+def refresh_data():
+    st.session_state.business_data = data
+    save_data(data)
 
 
-def euro(value):
+def next_id(items):
+    if not items:
+        return 1
+    return max(int(item.get("id", 0)) for item in items) + 1
+
+
+def money(value):
     return f"€{float(value):,.2f}"
 
 
-# -------------------- JARVIS AI FUNCTION --------------------
-def ask_jarvis(prompt, business_context):
-    """Send a message to Jarvis using the OpenRouter API."""
+# ==========================================================
+# 5. JARVIS AI FUNCTION
+# ==========================================================
 
-    api_key = get_setting("OPENROUTER_API_KEY")
+def ask_jarvis(messages):
+    api_key = OPENROUTER_API_KEY.strip()
 
     if not api_key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is missing. "
-            "Add your API key in Streamlit Cloud "
-            "under Settings > Secrets."
+        return (
+            "Jarvis needs an API key to work. Set the "
+            "OPENROUTER_API_KEY environment variable and restart the app."
         )
 
-    system_prompt = (
-        "You are Jarvis, a friendly and practical AI assistant "
-        "for GLOW NEST, a candle business. "
-        "Use simple English and give helpful, concise answers. "
-        "Use the business data provided below. "
-        "Do not invent business figures. "
-        "Business data: " + business_context
+    products_summary = "\n".join(
+        [
+            f"- {p['name']}: price {money(p['price'])}, "
+            f"cost {money(p['cost'])}, stock {p['stock']}"
+            for p in data.get("products", [])
+        ]
     )
+
+    orders_summary = "\n".join(
+        [
+            f"- Order #{o['id']}: {o['product']}, "
+            f"quantity {o['quantity']}, total {money(o['total'])}, "
+            f"status {o['status']}"
+            for o in data.get("orders", [])
+        ]
+    )
+
+    system_prompt = f"""
+You are Jarvis, the friendly AI assistant for GLOW NEST,
+a handmade candle business.
+
+Use simple, clear English.
+Give practical advice and easy-to-follow steps.
+Be friendly and concise.
+Do not claim that you have changed anything in the dashboard.
+
+OUR PRODUCTS:
+{products_summary}
+
+OUR ORDERS:
+{orders_summary}
+
+Help with candle ideas, marketing, customer messages, pricing,
+profit calculations, sales improvement, inventory, and business planning.
+"""
+
+    payload = {
+        "model": JARVIS_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *messages[-12:],
+        ],
+        "max_tokens": 500,
+        "temperature": 0.7,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:8501",
+        "X-Title": "GLOW NEST Business Studio",
+    }
 
     try:
         response = requests.post(
-            f"{JARVIS_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": JARVIS_MODEL,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-                "temperature": 0.7,
-                "max_tokens": 450,
-            },
+            JARVIS_URL,
+            headers=headers,
+            json=payload,
             timeout=90,
         )
 
-        if response.status_code != 200:
+        if not response.ok:
             try:
-                detail = response.json().get("error", {})
+                details = response.json().get("error", {}).get(
+                    "message", response.text[:300]
+                )
+            except ValueError:
+                details = response.text[:300]
 
-                if isinstance(detail, dict):
-                    detail = detail.get(
-                        "message",
-                        str(detail),
-                    )
-
-            except (ValueError, AttributeError):
-                detail = response.text[:500]
-
-            raise RuntimeError(
-                f"AI API error ({response.status_code}): "
-                f"{detail}"
-            )
+            return f"Jarvis API error: {details}"
 
         result = response.json()
-
         return result["choices"][0]["message"]["content"]
 
-    except requests.Timeout:
-        raise RuntimeError(
-            "Jarvis took too long to respond. Please try again."
-        )
+    except requests.exceptions.Timeout:
+        return "Jarvis took too long to respond. Please try again."
 
-    except requests.RequestException as exc:
-        raise RuntimeError(
-            f"Could not connect to Jarvis: {exc}"
-        )
+    except requests.exceptions.RequestException as error:
+        return f"Could not connect to Jarvis: {error}"
 
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
-        raise RuntimeError(
-            f"Unexpected AI response: {exc}"
-        )
+    except (KeyError, IndexError, ValueError):
+        return "Jarvis returned an unexpected response. Please try again."
 
 
-# -------------------- STYLE --------------------
+# ==========================================================
+# 6. CUSTOM DESIGN AND COLOURS
+# ==========================================================
+
 st.markdown(
     """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
-
-:root {
-    --gold: #f2c879;
-    --cream: #f8fafc;
-    --muted: #d1d8e2;
-}
-
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-}
-
-.stApp {
-    background: radial-gradient(
-        ellipse at 85% 0%,
-        #263449 0%,
-        #151d2b 44%,
-        #0d1320 100%
+    <style>
+    @import url(
+        'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap'
     );
-    color: var(--cream);
-}
 
-[data-testid="stSidebar"] {
-    background: linear-gradient(
-        180deg,
-        #1d293b 0%,
-        #111827 100%
-    );
-    border-right: 1px solid #344256;
-}
+    :root {
+        --navy: #101b32;
+        --blue: #4169e1;
+        --gold: #ffd166;
+        --cream: #fffaf0;
+        --text: #202b3c;
+        --muted: #64748b;
+        --border: #e6eaf0;
+    }
 
-[data-testid="stSidebar"] * {
-    color: #f8fafc;
-}
+    html, body, [class*="css"] {
+        font-family: 'DM Sans', sans-serif;
+    }
 
-.block-container {
-    max-width: 1500px;
-    padding-top: 1.6rem;
-    padding-bottom: 3rem;
-}
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 95% 0%,
+                rgba(255, 209, 102, 0.18),
+                transparent 30%
+            ),
+            linear-gradient(180deg, #f8faff 0%, #fffaf2 100%);
+        color: var(--text);
+    }
 
-h1, h2, h3 {
-    font-family: 'Playfair Display', serif !important;
-    color: #f8fafc !important;
-}
+    h1, h2, h3, h4 {
+        font-family: 'Playfair Display', serif !important;
+        color: var(--navy) !important;
+    }
 
-p, label, .stCaption {
-    color: #e2e8f0;
-}
+    [data-testid="stSidebar"] {
+        background: linear-gradient(
+            180deg,
+            #314b70 0%,
+            #18263e 55%,
+            #0a1222 100%
+        );
+        border-right: 2px solid var(--gold);
+    }
 
-div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, #263449, #1b2636);
-    border: 1px solid #3a4a60;
-    padding: 18px 20px;
-    border-radius: 18px;
-    box-shadow: 0 12px 32px #00000020;
-}
+    [data-testid="stSidebar"] * {
+        color: #ffffff;
+    }
 
-div[data-testid="stMetricLabel"] {
-    color: #dbe5f1 !important;
-}
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #ffe09a !important;
+    }
 
-div[data-testid="stMetricValue"] {
-    color: #ffffff !important;
-}
+    .brand-mark {
+        background: linear-gradient(135deg, #ffe7a3, #ffd166, #f3a712);
+        color: #17243b;
+        padding: 14px;
+        border-radius: 18px;
+        text-align: center;
+        font-size: 34px;
+        margin-bottom: 12px;
+    }
 
-div[data-testid="stMetricDelta"] {
-    color: #c4d9a7 !important;
-}
+    .brand-name {
+        font-family: 'Playfair Display', serif;
+        font-size: 31px;
+        font-weight: 700;
+        color: #ffe09a;
+        text-align: center;
+        letter-spacing: 1px;
+    }
 
-.stButton > button,
-.stFormSubmitButton > button {
-    background: linear-gradient(135deg, #e7c98e, #c18d4e);
-    color: #24170f;
-    border: 0;
-    border-radius: 12px;
-    font-weight: 700;
-    min-height: 2.65rem;
-}
+    .brand-subtitle {
+        text-align: center;
+        font-size: 11px;
+        letter-spacing: 2px;
+        margin-bottom: 20px;
+        color: #ffffff;
+    }
 
-.stButton > button:hover,
-.stFormSubmitButton > button:hover {
-    background: #f2d7a5;
-    color: #24170f;
-    border: 0;
-}
+    .hero {
+        background: linear-gradient(120deg, #314b70, #18263e, #0a1222);
+        padding: 32px;
+        border-radius: 24px;
+        color: white;
+        margin-bottom: 24px;
+        border: 1px solid rgba(255, 209, 102, 0.7);
+        box-shadow: 0 12px 30px rgba(16, 27, 50, 0.16);
+    }
 
-.stTextInput input,
-.stNumberInput input,
-.stTextArea textarea,
-div[data-baseweb="select"] > div {
-    background: #111827 !important;
-    color: #ffffff !important;
-    border-color: #52627a !important;
-    border-radius: 10px !important;
-}
+    .hero h1 {
+        color: #ffe09a !important;
+        font-size: 39px;
+        margin-bottom: 8px;
+    }
 
-div[data-testid="stChatMessage"] {
-    background: #202c3e;
-    border: 1px solid #40516a;
-    border-radius: 16px;
-    color: #f8fafc;
-}
+    .hero p {
+        color: #ffffff !important;
+        font-size: 15px;
+    }
 
-hr {
-    border-color: #344256;
-}
+    .hero-eyebrow {
+        color: #ffd166;
+        letter-spacing: 3px;
+        font-size: 11px;
+        font-weight: 800;
+        margin-bottom: 10px;
+    }
 
-.hero {
-    background: linear-gradient(
-        115deg,
-        rgba(37,52,73,.98),
-        rgba(24,34,49,.96)
-    );
-    border: 1px solid #465873;
-    border-radius: 24px;
-    padding: 27px 30px;
-    box-shadow: 0 18px 45px #00000024;
-}
+    .metric-card {
+        background: linear-gradient(145deg, #ffffff, #fffaf0);
+        border: 1px solid #f0e4c8;
+        padding: 20px;
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(16, 27, 50, 0.08);
+        min-height: 132px;
+    }
 
-.eyebrow {
-    color: #f2c879;
-    font-size: .75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2.4px;
-}
+    .metric-label {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
 
-.hero-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.65rem;
-    line-height: 1.13;
-    color: #ffffff;
-    margin: .45rem 0 .7rem;
-}
+    .metric-value {
+        color: #17243b;
+        font-size: 28px;
+        font-weight: 800;
+        margin-top: 8px;
+    }
 
-.hero-sub {
-    color: #e2e8f0;
-    font-size: 1rem;
-    line-height: 1.65;
-}
+    .metric-note {
+        color: #64748b;
+        font-size: 12px;
+        margin-top: 5px;
+    }
 
-.brand {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.7rem;
-    letter-spacing: 3px;
-    color: #f2c879;
-}
+    .section-heading {
+        font-family: 'Playfair Display', serif;
+        color: #17243b;
+        font-size: 25px;
+        font-weight: 700;
+        margin: 12px 0 4px 0;
+    }
 
-.brand-sub {
-    font-size: .65rem;
-    letter-spacing: 2.3px;
-    color: #dbe5f1;
-    margin-top: 4px;
-}
+    .section-caption {
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 16px;
+    }
 
-.product-card {
-    background: linear-gradient(150deg, #263449, #1b2636);
-    border: 1px solid #3a4a60;
-    border-radius: 18px;
-    overflow: hidden;
-}
+    .product-card {
+        background: #ffffff;
+        border: 1px solid #e9edf4;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 8px 24px rgba(16, 27, 50, 0.08);
+        margin-bottom: 10px;
+    }
 
-.product-info {
-    padding: 16px 17px 18px;
-}
+    .product-icon {
+        font-size: 32px;
+        background: linear-gradient(135deg, #fff0c2, #ffe4ed);
+        width: 62px;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        margin-bottom: 12px;
+    }
 
-.product-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.25rem;
-    color: #ffffff;
-}
+    .product-name {
+        font-family: 'Playfair Display', serif;
+        color: #17243b;
+        font-size: 21px;
+        font-weight: 700;
+    }
 
-.muted {
-    color: #d1dbe8;
-    font-size: .86rem;
-}
+    .product-category {
+        color: #64748b;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
 
-.pill {
-    display: inline-block;
-    border: 1px solid #6c5a38;
-    background: #293448;
-    color: #ffe0a0;
-    padding: 5px 10px;
-    border-radius: 30px;
-    font-size: .75rem;
-}
+    .product-price {
+        color: #b77900;
+        font-size: 23px;
+        font-weight: 800;
+    }
 
-.task-card {
-    background: #202c3e;
-    border: 1px solid #40516a;
-    border-radius: 15px;
-    padding: 15px;
-    margin-bottom: 10px;
-}
+    .jarvis-banner {
+        background: linear-gradient(120deg, #314b70, #18263e, #101b32);
+        border: 1px solid #ffd166;
+        border-radius: 22px;
+        padding: 22px;
+        color: #ffffff;
+        margin-bottom: 18px;
+    }
 
-div[data-testid="stDataFrame"] {
-    border: 1px solid #40516a;
-    border-radius: 12px;
-}
-</style>
-""",
+    .jarvis-banner h2 {
+        color: #ffe09a !important;
+    }
+
+    .jarvis-banner p {
+        color: #ffffff !important;
+    }
+
+    /* Normal input fields */
+    .stTextInput input,
+    .stNumberInput input,
+    .stDateInput input,
+    .stTextArea textarea,
+    [data-testid="stChatInput"] textarea {
+        background-color: #ffffff !important;
+        color: #17243b !important;
+        -webkit-text-fill-color: #17243b !important;
+        caret-color: #17243b !important;
+        border-radius: 10px !important;
+    }
+
+    .stTextInput input::placeholder,
+    .stTextArea textarea::placeholder,
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+        opacity: 1 !important;
+    }
+
+    /* Make Jarvis input bright and readable */
+    [data-testid="stChatInput"] {
+        background: #ffffff !important;
+        border: 2px solid #ffd166 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 16px rgba(16, 27, 50, 0.08) !important;
+    }
+
+    [data-testid="stChatInput"] textarea,
+    [data-testid="stChatInput"] textarea:focus {
+        background: #ffffff !important;
+        color: #17243b !important;
+        -webkit-text-fill-color: #17243b !important;
+        caret-color: #17243b !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stChatInput"] button {
+        background: #ffd166 !important;
+        color: #17243b !important;
+        border-radius: 10px !important;
+    }
+
+    .stButton button,
+    .stFormSubmitButton button {
+        background: linear-gradient(135deg, #4169e1, #253e63);
+        color: #ffffff !important;
+        border: none;
+        border-radius: 11px;
+        font-weight: 700;
+        padding: 9px 16px;
+        transition: all 0.2s ease;
+    }
+
+    .stButton button:hover,
+    .stFormSubmitButton button:hover {
+        background: linear-gradient(135deg, #ffd166, #f3a712);
+        color: #17243b !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        background: #ffffff;
+        border-radius: 10px;
+        color: #253e63;
+        border: 1px solid #e6eaf0;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: #fff0c2 !important;
+        color: #17243b !important;
+        border-color: #ffd166 !important;
+    }
+
+    .footer {
+        color: #64748b;
+        text-align: center;
+        padding: 25px 0 10px 0;
+        font-size: 12px;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
+# ==========================================================
+# 7. SIDEBAR NAVIGATION
+# ==========================================================
 
-# -------------------- SIDEBAR --------------------
 with st.sidebar:
     st.markdown(
-        "<div style='font-size:2.2rem'>🕯️</div>"
-        "<div class='brand'>GLOW NEST</div>"
-        "<div class='brand-sub'>THE ART OF WARMTH</div>",
+        '<div class="brand-mark">🕯️</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="brand-name">GLOW NEST</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="brand-subtitle">OUR CANDLE BUSINESS STUDIO</div>',
         unsafe_allow_html=True,
     )
 
     st.markdown("---")
-    st.caption("YOUR CANDLE BUSINESS STUDIO")
+    st.markdown("### ✨ Main Menu")
 
     pages = [
-        ("✦", "Overview"),
-        ("🕯️", "Products & Stock"),
+        ("🏠", "Overview"),
+        ("🕯️", "Products"),
         ("📦", "Orders"),
-        ("♧", "Team & Tasks"),
-        ("✧", "Jarvis AI"),
-        ("◎", "Profit Studio"),
+        ("👥", "Our Team"),
+        ("🤖", "Jarvis AI"),
+        ("💰", "Profit Calculator"),
     ]
 
-    for icon, label in pages:
+    for page_icon, page_name in pages:
         if st.button(
-            f"{icon}   {label}",
-            key=f"nav_{label}",
+            f"{page_icon}  {page_name}",
+            key=f"nav_{page_name}",
             use_container_width=True,
         ):
-            st.session_state.page = label
+            st.session_state.page = page_name
             st.rerun()
 
     st.markdown("---")
+    st.markdown("### 🌟 Our Mission")
+    st.write(
+        "Creating beautiful candles and meaningful moments, "
+        "one glow at a time."
+    )
+    st.markdown("---")
+    st.caption("Our business data is saved locally on this computer.")
+    st.caption("GLOW NEST © 2026")
 
+
+# ==========================================================
+# 8. COMMON UI FUNCTIONS
+# ==========================================================
+
+def page_title(eyebrow, title, subtitle):
     st.markdown(
-        "<span class='pill'>● Workspace ready</span>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "Your business data is saved locally on this computer."
-    )
-
-    st.markdown(
-        "<div style='height:18px'></div>"
-        "<div class='muted'>Handcrafted candles. Beautiful moments.</div>",
-        unsafe_allow_html=True,
-    )
-
-
-# -------------------- CALCULATIONS --------------------
-products = data["products"]
-orders = data["orders"]
-employees = data["employees"]
-
-stock_units = sum(
-    int(product.get("stock", 0))
-    for product in products
-)
-
-low_stock = sum(
-    1
-    for product in products
-    if int(product.get("stock", 0)) < 10
-)
-
-tracked_sales = sum(
-    float(order.get("total", 0))
-    for order in orders
-    if order.get("status") in [
-        "Preparing",
-        "Ready to ship",
-        "Shipped",
-        "Completed",
-    ]
-)
-
-pending_tasks = sum(
-    1
-    for employee in employees
-    if employee.get("status") != "Completed"
-)
-
-stock_margin = sum(
-    (
-        float(product.get("price", 0))
-        - float(product.get("cost", 0))
-    )
-    * int(product.get("stock", 0))
-    for product in products
-)
-
-
-# -------------------- TOP HEADER --------------------
-page = st.session_state.page
-
-header_left, header_right = st.columns([4, 1])
-
-with header_left:
-    st.markdown(
-        "<div class='eyebrow'>THE CANDLE BUSINESS DASHBOARD</div>",
-        unsafe_allow_html=True,
-    )
-
-    title = (
-        "Your business, glowing brighter."
-        if page == "Overview"
-        else page
-    )
-
-    st.markdown(
-        f"<div class='hero-title'>{title}</div>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        "<div class='hero-sub'>One beautiful place for your candles, "
-        "your team, and your next big idea.</div>",
-        unsafe_allow_html=True,
-    )
-
-with header_right:
-    st.markdown(
-        f"<div style='text-align:right;padding-top:12px;"
-        f"color:#f2c879;font-weight:700'>"
-        f"{date.today().strftime('%A')}</div>"
-        f"<div style='text-align:right;color:#d1dbe8'>"
-        f"{date.today().strftime('%d %B %Y')}</div>",
+        f"""
+        <div class="hero">
+            <div class="hero-eyebrow">{eyebrow}</div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-# -------------------- OVERVIEW --------------------
-if page == "Overview":
-    hero_left, hero_right = st.columns([1.55, 1])
+def metric_card(label, value, note, emoji):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div style="font-size:24px">{emoji}</div>
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with hero_left:
+
+def section_heading(title, caption=None):
+    st.markdown(
+        f'<div class="section-heading">{title}</div>',
+        unsafe_allow_html=True,
+    )
+
+    if caption:
+        st.markdown(
+            f'<div class="section-caption">{caption}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+# ==========================================================
+# 9. OVERVIEW PAGE
+# ==========================================================
+
+def show_overview():
+    page_title(
+        "WELCOME TO OUR BUSINESS",
+        "Our business, glowing brighter.",
+        "One beautiful place for our candles, our team, and our next big idea.",
+    )
+
+    products = data["products"]
+    orders = data["orders"]
+
+    completed_revenue = sum(
+        float(order.get("total", 0))
+        for order in orders
+        if order.get("status") == "Completed"
+    )
+
+    open_orders = sum(
+        1 for order in orders
+        if order.get("status") in ["Pending", "Processing"]
+    )
+
+    total_stock = sum(
+        int(product.get("stock", 0))
+        for product in products
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        metric_card(
+            "Completed Sales",
+            money(completed_revenue),
+            "Revenue from completed orders",
+            "💰",
+        )
+
+    with c2:
+        metric_card(
+            "Our Products",
+            str(len(products)),
+            "Products in our collection",
+            "🕯️",
+        )
+
+    with c3:
+        metric_card(
+            "Open Orders",
+            str(open_orders),
+            "Pending or processing",
+            "📦",
+        )
+
+    with c4:
+        metric_card(
+            "Items in Stock",
+            str(total_stock),
+            "Total inventory available",
+            "✨",
+        )
+
+    st.write("")
+
+    left, right = st.columns([1.4, 1])
+
+    with left:
+        section_heading(
+            "Our candle collection",
+            "A quick look at the products we offer.",
+        )
+
+        if not products:
+            st.info("Add our first product from the Products page.")
+        else:
+            product_columns = st.columns(2)
+
+            for index, product in enumerate(products[:4]):
+                with product_columns[index % 2]:
+                    st.markdown(
+                        f"""
+                        <div class="product-card">
+                            <div class="product-icon">🕯️</div>
+                            <div class="product-name">{product['name']}</div>
+                            <div class="product-category">
+                                {product.get('category', 'Candle')}
+                            </div>
+                            <div class="product-price">
+                                {money(product['price'])}
+                            </div>
+                            <p>{product.get('description', '')}</p>
+                            <b>Stock: {product.get('stock', 0)}</b>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+    with right:
+        section_heading("Our daily focus", "Small steps, brighter results.")
+
         st.markdown(
             """
-            <div class="hero" style="height:100%">
-              <div class="eyebrow">WELCOME TO GLOW NEST</div>
-              <div style="font-family:Playfair Display,serif;
-              font-size:2rem;color:#ffffff;line-height:1.2;
-              margin:10px 0">
-                The little details make the glow.
-              </div>
-              <div class="hero-sub">
-                Manage your handmade candle collection, stay on top
-                of customer orders, and keep your whole team moving
-                — without the chaos.
-              </div>
-              <div style="margin-top:19px">
-                <span class="pill">✦ Thoughtful products</span>
-                <span class="pill">✦ One simple workspace</span>
-              </div>
+            <div class="product-card">
+                <div style="font-size:28px">🎯</div>
+                <h3>Quality first</h3>
+                <p>Create candles that look beautiful and smell amazing.</p>
+            </div>
+            <div class="product-card">
+                <div style="font-size:28px">💌</div>
+                <h3>Happy customers</h3>
+                <p>Deliver orders on time and respond kindly to customers.</p>
+            </div>
+            <div class="product-card">
+                <div style="font-size:28px">📈</div>
+                <h3>Grow together</h3>
+                <p>Track sales, manage stock, and find new opportunities.</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    with hero_right:
-        st.image(
-            "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=1000&q=85",
-            caption="GLOW NEST · Light up your moments",
+    section_heading("Recent orders", "The latest activity in our business.")
+
+    if orders:
+        recent = sorted(
+            orders,
+            key=lambda order: str(order.get("date", "")),
+            reverse=True,
+        )[:5]
+
+        st.dataframe(
+            [
+                {
+                    "Order ID": f"#{o['id']}",
+                    "Customer": o["customer"],
+                    "Product": o["product"],
+                    "Quantity": o["quantity"],
+                    "Total": money(o["total"]),
+                    "Status": o["status"],
+                    "Date": o["date"],
+                }
+                for o in recent
+            ],
             use_container_width=True,
+            hide_index=True,
         )
+    else:
+        st.info("Our orders will appear here.")
 
-    st.markdown("")
 
-    m1, m2, m3, m4 = st.columns(4)
+# ==========================================================
+# 10. PRODUCTS PAGE
+# ==========================================================
 
-    m1.metric(
-        "Sales tracked",
-        euro(tracked_sales),
-        "active & completed orders",
+def show_products():
+    page_title(
+        "OUR COLLECTION",
+        "Products & candles",
+        "Manage our candle collection, prices, costs, and stock.",
     )
 
-    m2.metric(
-        "Candles in stock",
-        stock_units,
-        f"{low_stock} low-stock products",
+    products = data["products"]
+
+    view_tab, add_tab, manage_tab = st.tabs(
+        ["🕯️ Our Products", "➕ Add Product", "🛠️ Manage Products"]
     )
 
-    m3.metric(
-        "Open team tasks",
-        pending_tasks,
-        f"of {len(employees)} employees",
-    )
-
-    m4.metric(
-        "Estimated stock margin",
-        euro(stock_margin),
-        "before other expenses",
-    )
-
-    st.caption(
-        "Demo orders and product details are included so you can "
-        "explore the dashboard. Replace them with your real business information."
-    )
-
-    left, right = st.columns([1.1, 1])
-
-    with left:
-        st.markdown("### 📦 Recent orders")
-
-        if orders:
-            for order in orders[:4]:
-                st.markdown(
-                    f"""
-                    <div class="task-card">
-                      <div style="display:flex;justify-content:space-between;
-                      gap:8px">
-                        <b style="color:#f8fafc">
-                          {order.get('customer', 'Customer')}
-                        </b>
-                        <span class="pill">
-                          {order.get('status', 'New')}
-                        </span>
-                      </div>
-                      <div class="muted" style="margin-top:6px">
-                        {order.get('product')} · Qty {order.get('qty', 1)}
-                        · {order.get('created', '')}
-                      </div>
-                      <div style="color:#f2c879;font-weight:700;margin-top:8px">
-                        {euro(order.get('total', 0))}
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+    with view_tab:
+        if not products:
+            st.info("No products yet.")
         else:
-            st.info("No orders yet. Add your first order in Orders.")
+            for product in products:
+                with st.container(border=True):
+                    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
 
-    with right:
-        st.markdown("### ♧ Team at a glance")
+                    with c1:
+                        st.markdown(f"### 🕯️ {product['name']}")
+                        st.caption(
+                            f"{product.get('category', 'Candle')} — "
+                            f"{product.get('description', '')}"
+                        )
 
-        for employee in employees:
-            icon = (
-                "✓"
-                if employee.get("status") == "Completed"
-                else (
-                    "◷"
-                    if employee.get("status") == "In progress"
-                    else "○"
-                )
-            )
+                    with c2:
+                        st.markdown("**Selling price**")
+                        st.write(money(product["price"]))
 
-            st.markdown(
-                f"""
-                <div style="display:flex;gap:11px;align-items:center;
-                padding:11px 0;border-bottom:1px solid #3d2b21">
-                  <div style="background:#3b281d;border:1px solid #65472d;
-                  border-radius:12px;width:38px;height:38px;display:flex;
-                  align-items:center;justify-content:center;
-                  color:#e5bd7a;font-weight:700">
-                    {icon}
-                  </div>
-                  <div style="flex:1">
-                    <div style="color:#f8fafc;font-weight:600">
-                      {employee.get('name')}
-                    </div>
-                    <div class="muted">{employee.get('task')}</div>
-                  </div>
-                  <span class="pill">{employee.get('status')}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                    with c3:
+                        st.markdown("**Unit cost**")
+                        st.write(money(product["cost"]))
 
-    st.markdown("")
+                    with c4:
+                        st.markdown("**Stock**")
+                        st.write(product["stock"])
 
-    quick1, quick2, quick3 = st.columns(3)
+    with add_tab:
+        st.markdown("### Add a new candle")
 
-    if quick1.button("＋ Add a candle", use_container_width=True):
-        st.session_state.page = "Products & Stock"
-        st.rerun()
+        with st.form("add_product_form", clear_on_submit=True):
+            name = st.text_input("Product name")
 
-    if quick2.button("📦 View orders", use_container_width=True):
-        st.session_state.page = "Orders"
-        st.rerun()
-
-    if quick3.button("✧ Ask Jarvis", use_container_width=True):
-        st.session_state.page = "Jarvis AI"
-        st.rerun()
-
-
-# -------------------- PRODUCTS --------------------
-elif page == "Products & Stock":
-    st.markdown("### Your candle collection")
-
-    st.caption(
-        "Beautiful products, clear pricing, and stock at a glance. "
-        "Prices are in euros."
-    )
-
-    with st.expander("＋ Add a new candle"):
-        with st.form("add_product", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-
-            name = c1.text_input("Candle name")
-
-            category = c2.selectbox(
-                "Collection",
+            category = st.selectbox(
+                "Category",
                 [
-                    "Signature",
-                    "Soft & Sweet",
-                    "Woody",
                     "Floral",
+                    "Warm & Woody",
+                    "Sweet & Soft",
+                    "Fresh",
+                    "Wood & Earth",
                     "Seasonal",
                     "Other",
                 ],
             )
 
-            c3, c4, c5 = st.columns(3)
+            c1, c2, c3 = st.columns(3)
 
-            price = c3.number_input(
-                "Selling price (€)",
-                min_value=0.0,
-                value=18.0,
-                step=0.5,
+            with c1:
+                price = st.number_input(
+                    "Selling price (€)",
+                    min_value=0.0,
+                    value=15.0,
+                    step=0.5,
+                )
+
+            with c2:
+                cost = st.number_input(
+                    "Cost to make (€)",
+                    min_value=0.0,
+                    value=5.0,
+                    step=0.5,
+                )
+
+            with c3:
+                stock = st.number_input(
+                    "Stock quantity",
+                    min_value=0,
+                    value=10,
+                    step=1,
+                )
+
+            description = st.text_area(
+                "Description",
+                placeholder="Describe the fragrance and style...",
             )
 
-            cost = c4.number_input(
-                "Making cost (€)",
-                min_value=0.0,
-                value=7.0,
-                step=0.5,
+            submitted = st.form_submit_button(
+                "Add product",
+                use_container_width=True,
             )
 
-            stock = c5.number_input(
-                "Units in stock",
-                min_value=0,
-                value=10,
-                step=1,
-            )
-
-            image_url = st.text_input(
-                "Product image URL (optional)",
-                placeholder="https://...",
-            )
-
-            if st.form_submit_button("Save candle"):
+            if submitted:
                 if not name.strip():
-                    st.warning("Please enter a candle name.")
+                    st.error("Please enter a product name.")
                 else:
                     products.append(
                         {
+                            "id": next_id(products),
                             "name": name.strip(),
                             "category": category,
-                            "price": price,
-                            "cost": cost,
+                            "price": float(price),
+                            "cost": float(cost),
                             "stock": int(stock),
-                            "image": image_url.strip(),
+                            "description": description.strip(),
                         }
                     )
 
-                    save_data()
-                    st.success("Candle added!")
+                    refresh_data()
+                    st.success("Product added to our collection.")
                     st.rerun()
 
-    if products:
-        cols = st.columns(2)
+    with manage_tab:
+        if not products:
+            st.info("There are no products to manage.")
+        else:
+            selected_id = st.selectbox(
+                "Select a product",
+                options=[p["id"] for p in products],
+                format_func=lambda pid: next(
+                    p["name"] for p in products if p["id"] == pid
+                ),
+            )
 
-        for i, product in enumerate(products):
-            with cols[i % 2]:
-                img = product.get("image", "")
+            product = next(p for p in products if p["id"] == selected_id)
 
-                if img:
-                    try:
-                        st.image(img, use_container_width=True)
-                    except Exception:
-                        st.markdown("🕯️")
-                else:
-                    st.markdown(
-                        "<div class='hero' style='text-align:center;"
-                        "font-size:3rem'>🕯️</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                stock = int(product.get("stock", 0))
-
-                st.markdown(
-                    f"<div class='product-name'>{product.get('name')}</div>"
-                    f"<div class='muted'>{product.get('category', 'Collection')}</div>"
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"margin:8px 0 12px'>"
-                    f"<span style='color:#f2c879;font-weight:700'>"
-                    f"{euro(product.get('price', 0))}</span>"
-                    f"<span class='pill'>{stock} in stock</span></div>",
-                    unsafe_allow_html=True,
+            with st.form("edit_product_form"):
+                edited_name = st.text_input(
+                    "Product name",
+                    value=product["name"],
                 )
 
-                with st.expander(f"Edit {product.get('name')}"):
-                    product["name"] = st.text_input(
-                        "Name",
-                        value=product.get("name", ""),
-                        key=f"pn{i}",
-                    )
+                edited_category = st.text_input(
+                    "Category",
+                    value=product.get("category", ""),
+                )
 
-                    categories = [
-                        "Signature",
-                        "Soft & Sweet",
-                        "Woody",
-                        "Floral",
-                        "Seasonal",
-                        "Other",
-                    ]
+                c1, c2, c3 = st.columns(3)
 
-                    product["category"] = st.selectbox(
-                        "Category",
-                        categories,
-                        index=(
-                            categories.index(product.get("category", "Other"))
-                            if product.get("category") in categories
-                            else 5
-                        ),
-                        key=f"pc{i}",
-                    )
-
-                    product["price"] = st.number_input(
-                        "Price (€)",
+                with c1:
+                    edited_price = st.number_input(
+                        "Selling price (€)",
                         min_value=0.0,
-                        value=float(product.get("price", 0)),
+                        value=float(product["price"]),
                         step=0.5,
-                        key=f"pp{i}",
                     )
 
-                    product["cost"] = st.number_input(
+                with c2:
+                    edited_cost = st.number_input(
                         "Cost (€)",
                         min_value=0.0,
-                        value=float(product.get("cost", 0)),
+                        value=float(product["cost"]),
                         step=0.5,
-                        key=f"pk{i}",
                     )
 
-                    product["stock"] = st.number_input(
+                with c3:
+                    edited_stock = st.number_input(
                         "Stock",
                         min_value=0,
-                        value=int(product.get("stock", 0)),
+                        value=int(product["stock"]),
                         step=1,
-                        key=f"ps{i}",
                     )
 
-                    product["image"] = st.text_input(
-                        "Image URL",
-                        value=product.get("image", ""),
-                        key=f"pi{i}",
-                    )
+                edited_description = st.text_area(
+                    "Description",
+                    value=product.get("description", ""),
+                )
 
-                    save_col, delete_col = st.columns(2)
+                save_changes = st.form_submit_button(
+                    "Save changes",
+                    use_container_width=True,
+                )
 
-                    if save_col.button(
-                        "Save changes",
-                        key=f"savep{i}",
-                        use_container_width=True,
-                    ):
-                        product["stock"] = int(product["stock"])
-                        save_data()
+                if save_changes:
+                    if not edited_name.strip():
+                        st.error("Product name cannot be empty.")
+                    else:
+                        product.update(
+                            {
+                                "name": edited_name.strip(),
+                                "category": edited_category.strip(),
+                                "price": float(edited_price),
+                                "cost": float(edited_cost),
+                                "stock": int(edited_stock),
+                                "description": edited_description.strip(),
+                            }
+                        )
+
+                        refresh_data()
                         st.success("Product updated.")
                         st.rerun()
 
-                    if delete_col.button(
-                        "Delete",
-                        key=f"delp{i}",
-                        use_container_width=True,
-                    ):
-                        products.pop(i)
-                        save_data()
-                        st.rerun()
+            st.markdown("---")
+            st.markdown("### Delete product")
 
-    else:
-        st.info("Add your first candle to begin.")
+            confirm_delete = st.checkbox(
+                f"Confirm deletion of {product['name']}",
+                key=f"delete_product_{selected_id}",
+            )
+
+            if st.button(
+                "Delete selected product",
+                disabled=not confirm_delete,
+            ):
+                data["products"] = [
+                    p for p in data["products"]
+                    if p["id"] != selected_id
+                ]
+
+                refresh_data()
+                st.success("Product deleted.")
+                st.rerun()
 
 
-# -------------------- ORDERS --------------------
-elif page == "Orders":
-    st.markdown("### From your studio to their doorstep")
+# ==========================================================
+# 11. ORDERS PAGE
+# ==========================================================
 
-    with st.expander("＋ Create customer order"):
-        with st.form("add_order", clear_on_submit=True):
-            customer = st.text_input("Customer name")
-            names = [product["name"] for product in products]
+def show_orders():
+    page_title(
+        "CUSTOMER ORDERS",
+        "Orders & fulfilment",
+        "Create orders, update their status, and track customer purchases.",
+    )
 
-            if names:
-                product_name = st.selectbox("Candle", names)
+    orders = data["orders"]
+    products = data["products"]
 
-                qty = st.number_input(
+    revenue = sum(
+        float(o.get("total", 0))
+        for o in orders
+        if o.get("status") == "Completed"
+    )
+
+    pending = sum(1 for o in orders if o.get("status") == "Pending")
+    processing = sum(1 for o in orders if o.get("status") == "Processing")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Completed revenue", money(revenue))
+    c2.metric("Pending orders", pending)
+    c3.metric("Processing orders", processing)
+
+    view_tab, add_tab, manage_tab = st.tabs(
+        ["📦 All Orders", "➕ Create Order", "🛠️ Manage Orders"]
+    )
+
+    with view_tab:
+        if not orders:
+            st.info("No orders yet.")
+        else:
+            st.dataframe(
+                [
+                    {
+                        "Order ID": f"#{o['id']}",
+                        "Customer": o["customer"],
+                        "Product": o["product"],
+                        "Quantity": o["quantity"],
+                        "Total": money(o["total"]),
+                        "Status": o["status"],
+                        "Date": o["date"],
+                    }
+                    for o in sorted(
+                        orders,
+                        key=lambda item: str(item.get("date", "")),
+                        reverse=True,
+                    )
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    with add_tab:
+        if not products:
+            st.warning("Add a product before creating an order.")
+        else:
+            with st.form("create_order_form", clear_on_submit=True):
+                customer = st.text_input("Customer name")
+
+                product_id = st.selectbox(
+                    "Select product",
+                    options=[p["id"] for p in products],
+                    format_func=lambda pid: next(
+                        f"{p['name']} — {money(p['price'])} "
+                        f"(Stock: {p['stock']})"
+                        for p in products
+                        if p["id"] == pid
+                    ),
+                )
+
+                selected_product = next(
+                    p for p in products if p["id"] == product_id
+                )
+
+                max_quantity = max(1, int(selected_product["stock"]))
+
+                quantity = st.number_input(
                     "Quantity",
                     min_value=1,
+                    max_value=max_quantity,
                     value=1,
                     step=1,
                 )
 
                 status = st.selectbox(
                     "Order status",
-                    [
-                        "New",
-                        "Preparing",
-                        "Ready to ship",
-                        "Shipped",
-                        "Completed",
-                    ],
+                    ["Pending", "Processing", "Completed", "Cancelled"],
                 )
 
-                if st.form_submit_button("Create order"):
-                    product = next(
-                        product
-                        for product in products
-                        if product["name"] == product_name
-                    )
+                st.info(
+                    f"Order total: "
+                    f"{money(selected_product['price'] * quantity)}"
+                )
 
+                submitted = st.form_submit_button(
+                    "Create order",
+                    use_container_width=True,
+                )
+
+                if submitted:
                     if not customer.strip():
-                        st.warning("Enter the customer name.")
-
-                    elif int(product["stock"]) < int(qty):
-                        st.error("Not enough stock for this order.")
-
+                        st.error("Please enter the customer's name.")
+                    elif int(quantity) > int(selected_product["stock"]):
+                        st.error("There is not enough stock.")
                     else:
-                        product["stock"] = (
-                            int(product["stock"]) - int(qty)
-                        )
+                        new_order = {
+                            "id": next_id(orders),
+                            "customer": customer.strip(),
+                            "product": selected_product["name"],
+                            "quantity": int(quantity),
+                            "total": round(
+                                float(selected_product["price"])
+                                * int(quantity),
+                                2,
+                            ),
+                            "status": status,
+                            "date": datetime.now().strftime("%Y-%m-%d"),
+                        }
 
-                        orders.insert(
-                            0,
-                            {
-                                "customer": customer.strip(),
-                                "product": product_name,
-                                "qty": int(qty),
-                                "status": status,
-                                "created": str(date.today()),
-                                "total": (
-                                    float(product["price"]) * int(qty)
-                                ),
-                            },
-                        )
+                        orders.append(new_order)
 
-                        save_data()
-                        st.success("Order created and stock updated.")
+                        if status != "Cancelled":
+                            selected_product["stock"] -= int(quantity)
+
+                        refresh_data()
+                        st.success(
+                            f"Order #{new_order['id']} created successfully."
+                        )
                         st.rerun()
 
-            else:
-                st.info("Add a product before creating an order.")
-
-    if not orders:
-        st.info("Your order list is empty.")
-
-    for i, order in enumerate(orders):
-        with st.container(border=True):
-            a, b, c = st.columns([2, 1.5, 1])
-
-            a.markdown(f"**{order.get('customer', 'Customer')}**")
-
-            a.caption(
-                f"{order.get('product')} · Qty {order.get('qty', 1)} "
-                f"· {order.get('created', '')}"
+    with manage_tab:
+        if not orders:
+            st.info("There are no orders to manage.")
+        else:
+            order_id = st.selectbox(
+                "Choose an order",
+                options=[o["id"] for o in orders],
+                format_func=lambda oid: next(
+                    f"#{o['id']} — {o['customer']} — {o['product']}"
+                    for o in orders
+                    if o["id"] == oid
+                ),
             )
 
-            b.markdown(f"### {euro(order.get('total', 0))}")
+            order = next(o for o in orders if o["id"] == order_id)
+
+            st.write(f"**Customer:** {order['customer']}")
+            st.write(f"**Product:** {order['product']}")
+            st.write(f"**Total:** {money(order['total'])}")
+            st.write(f"**Current status:** {order['status']}")
 
             statuses = [
-                "New",
-                "Preparing",
-                "Ready to ship",
-                "Shipped",
+                "Pending",
+                "Processing",
                 "Completed",
+                "Cancelled",
             ]
 
-            current = order.get("status", "New")
-
-            order["status"] = b.selectbox(
-                "Status",
+            new_status = st.selectbox(
+                "Update status",
                 statuses,
-                index=(
-                    statuses.index(current)
-                    if current in statuses
-                    else 0
-                ),
-                key=f"os{i}",
+                index=statuses.index(order["status"])
+                if order["status"] in statuses
+                else 0,
+                key=f"status_{order_id}",
             )
 
-            if c.button("Delete order", key=f"do{i}"):
-                orders.pop(i)
-                save_data()
+            if st.button("Update order status"):
+                order["status"] = new_status
+                refresh_data()
+                st.success("Order status updated.")
                 st.rerun()
 
-    if st.button("Save order updates"):
-        save_data()
-        st.success("Orders saved.")
+            st.markdown("---")
 
+            confirm_delete = st.checkbox(
+                f"Confirm deletion of order #{order_id}",
+                key=f"delete_order_{order_id}",
+            )
 
-# -------------------- TEAM --------------------
-elif page == "Team & Tasks":
-    st.markdown("### Five people. One glowing team.")
-
-    st.caption(
-        "No logins or complicated setup — just give each person a task "
-        "and update progress."
-    )
-
-    for i, employee in enumerate(employees):
-        with st.container(border=True):
-            left, right = st.columns([1, 2])
-
-            with left:
-                st.markdown(f"#### ♧ Team member {i + 1}")
-
-                employee["name"] = st.text_input(
-                    "Employee name",
-                    value=employee.get("name", ""),
-                    key=f"en{i}",
-                )
-
-                employee["role"] = st.text_input(
-                    "Responsibility",
-                    value=employee.get("role", ""),
-                    key=f"er{i}",
-                )
-
-            with right:
-                employee["task"] = st.text_input(
-                    "Current task",
-                    value=employee.get("task", ""),
-                    key=f"et{i}",
-                )
-
-                statuses = [
-                    "Pending",
-                    "In progress",
-                    "Completed",
+            if st.button(
+                "Delete selected order",
+                disabled=not confirm_delete,
+            ):
+                data["orders"] = [
+                    o for o in data["orders"]
+                    if o["id"] != order_id
                 ]
 
-                current = employee.get("status", "Pending")
+                refresh_data()
+                st.success("Order deleted.")
+                st.rerun()
 
-                employee["status"] = st.selectbox(
-                    "Task status",
-                    statuses,
-                    index=(
-                        statuses.index(current)
-                        if current in statuses
-                        else 0
-                    ),
-                    key=f"es{i}",
-                )
 
-    if st.button("Save team updates", use_container_width=True):
-        save_data()
-        st.success("Team tasks saved.")
-        st.rerun()
+# ==========================================================
+# 12. OUR TEAM PAGE
+# ==========================================================
+
+def show_team():
+    page_title(
+        "OUR PEOPLE",
+        "Our team & tasks",
+        "Organise our daily work and track team responsibilities.",
+    )
+
+    team = data["team"]
 
     completed = sum(
-        1
-        for employee in employees
-        if employee.get("status") == "Completed"
+        1 for m in team if m.get("status") == "Completed"
+    )
+    in_progress = sum(
+        1 for m in team if m.get("status") == "In progress"
+    )
+    pending = sum(
+        1 for m in team if m.get("status") == "Pending"
     )
 
-    st.progress(
-        completed / max(len(employees), 1),
-        text=f"{completed} of {len(employees)} tasks completed",
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Completed tasks", completed)
+    c2.metric("In progress", in_progress)
+    c3.metric("Pending tasks", pending)
+
+    view_tab, add_tab, manage_tab = st.tabs(
+        ["👥 Our Team", "➕ Add Team Member", "🛠️ Manage Tasks"]
     )
 
+    with view_tab:
+        if not team:
+            st.info("Add our first team member.")
+        else:
+            for member in team:
+                with st.container(border=True):
+                    c1, c2 = st.columns([2, 1])
 
-# -------------------- JARVIS AI --------------------
-elif page == "Jarvis AI":
+                    with c1:
+                        st.markdown(f"### 👤 {member['name']}")
+                        st.write(f"**Role:** {member['role']}")
+                        st.write(f"**Task:** {member['task']}")
+
+                    with c2:
+                        st.write("**Task status**")
+
+                        if member["status"] == "Completed":
+                            st.success(member["status"])
+                        elif member["status"] == "In progress":
+                            st.info(member["status"])
+                        else:
+                            st.warning(member["status"])
+
+    with add_tab:
+        with st.form("add_team_form", clear_on_submit=True):
+            name = st.text_input("Team member name")
+            role = st.text_input("Role")
+            task = st.text_input("Assigned task")
+
+            status = st.selectbox(
+                "Task status",
+                ["Pending", "In progress", "Completed"],
+            )
+
+            submitted = st.form_submit_button(
+                "Add team member",
+                use_container_width=True,
+            )
+
+            if submitted:
+                if not name.strip():
+                    st.error("Please enter a team member name.")
+                elif not role.strip():
+                    st.error("Please enter a role.")
+                else:
+                    team.append(
+                        {
+                            "id": next_id(team),
+                            "name": name.strip(),
+                            "role": role.strip(),
+                            "task": task.strip(),
+                            "status": status,
+                        }
+                    )
+
+                    refresh_data()
+                    st.success("Team member added.")
+                    st.rerun()
+
+    with manage_tab:
+        if not team:
+            st.info("There are no team members to manage.")
+        else:
+            member_id = st.selectbox(
+                "Select team member",
+                options=[m["id"] for m in team],
+                format_func=lambda mid: next(
+                    m["name"] for m in team if m["id"] == mid
+                ),
+            )
+
+            member = next(m for m in team if m["id"] == member_id)
+
+            with st.form("edit_team_form"):
+                name = st.text_input("Name", value=member["name"])
+                role = st.text_input("Role", value=member["role"])
+                task = st.text_input("Task", value=member.get("task", ""))
+
+                statuses = ["Pending", "In progress", "Completed"]
+
+                status = st.selectbox(
+                    "Task status",
+                    statuses,
+                    index=statuses.index(member["status"])
+                    if member["status"] in statuses
+                    else 0,
+                )
+
+                submitted = st.form_submit_button(
+                    "Save team changes",
+                    use_container_width=True,
+                )
+
+                if submitted:
+                    member["name"] = name.strip()
+                    member["role"] = role.strip()
+                    member["task"] = task.strip()
+                    member["status"] = status
+
+                    refresh_data()
+                    st.success("Team details updated.")
+                    st.rerun()
+
+            confirm_delete = st.checkbox(
+                f"Confirm deletion of {member['name']}",
+                key=f"delete_member_{member_id}",
+            )
+
+            if st.button(
+                "Delete team member",
+                disabled=not confirm_delete,
+            ):
+                data["team"] = [
+                    m for m in data["team"]
+                    if m["id"] != member_id
+                ]
+
+                refresh_data()
+                st.success("Team member deleted.")
+                st.rerun()
+
+
+# ==========================================================
+# 13. JARVIS AI PAGE
+# ==========================================================
+
+def show_jarvis():
+    page_title(
+        "OUR BUSINESS CO-PILOT",
+        "Meet Jarvis AI",
+        "Our AI assistant for candle ideas, marketing, and business decisions.",
+    )
+
     st.markdown(
         """
-        <div class="hero">
-          <div class="eyebrow">YOUR BUSINESS CO-PILOT</div>
-          <div style="font-family:Playfair Display,serif;
-          font-size:1.8rem;color:#ffffff;margin:8px 0">
-            Hello, I'm Jarvis. ✦
-          </div>
-          <div class="hero-sub">
-            I can help with candle marketing, customer replies,
-            business ideas, and a summary of your team's tasks.
-          </div>
+        <div class="jarvis-banner">
+            <h2>🤖 Hello, I'm Jarvis!</h2>
+            <p>
+                Ask me anything about our handmade candle brand GLOW NEST.
+                I can help with planning, writing, calculations, and ideas.
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    business_context = (
-        f"Products: {json.dumps(products, ensure_ascii=False)}; "
-        f"Orders: {json.dumps(orders, ensure_ascii=False)}; "
-        f"Team: {json.dumps(employees, ensure_ascii=False)}; "
-        f"Tracked sales: {euro(tracked_sales)}."
-    )
-
-    q1, q2, q3 = st.columns(3)
+    st.markdown("### 💡 Try asking Jarvis")
 
     quick_prompts = [
-        (
-            "✦ Write an Instagram caption",
-            "Write an elegant Instagram caption for my handmade "
-            "candle brand Glow Nest. Add a few relevant hashtags.",
-        ),
-        (
-            "♧ Summarise team tasks",
-            "Summarise the five employees' current tasks, who has "
-            "completed work, and what is still pending.",
-        ),
-        (
-            "↗ Ideas to grow sales",
-            "Give me three practical, low-cost ideas to increase "
-            "sales for my candle business.",
-        ),
+        "Give me 5 marketing ideas for our candle business.",
+        "Write an Instagram caption for our new candle.",
+        "How can we increase our candle sales?",
+        "Suggest a new candle fragrance for our collection.",
     ]
 
-    for col, (label, prompt_text) in zip(
-        [q1, q2, q3],
-        quick_prompts,
-    ):
-        if col.button(label, use_container_width=True):
-            st.session_state.chat_history.append(
-                {
-                    "role": "user",
-                    "content": prompt_text,
-                }
-            )
+    columns = st.columns(2)
 
-            try:
-                answer = ask_jarvis(
-                    prompt_text,
-                    business_context,
+    for index, prompt in enumerate(quick_prompts):
+        with columns[index % 2]:
+            if st.button(
+                prompt,
+                key=f"jarvis_quick_{index}",
+                use_container_width=True,
+            ):
+                st.session_state.jarvis_messages.append(
+                    {"role": "user", "content": prompt}
                 )
-            except RuntimeError as exc:
-                answer = str(exc)
 
-            st.session_state.chat_history.append(
-                {
-                    "role": "assistant",
-                    "content": answer,
-                }
-            )
+                with st.spinner("Jarvis is thinking..."):
+                    answer = ask_jarvis(
+                        st.session_state.jarvis_messages
+                    )
 
-            st.rerun()
+                st.session_state.jarvis_messages.append(
+                    {"role": "assistant", "content": answer}
+                )
+                st.rerun()
 
-    for message in st.session_state.chat_history:
-        with st.chat_message(
-            message["role"],
-            avatar=(
-                "🤖"
-                if message["role"] == "assistant"
-                else "🙂"
-            ),
-        ):
+    st.markdown("---")
+    st.markdown("### 💬 Chat with Jarvis")
+
+    for message in st.session_state.jarvis_messages:
+        with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    prompt = st.chat_input(
-        "Ask Jarvis about your candle business..."
+    user_prompt = st.chat_input(
+        "Ask Jarvis about our candle business..."
     )
 
-    if prompt:
-        st.session_state.chat_history.append(
-            {
-                "role": "user",
-                "content": prompt,
-            }
+    if user_prompt:
+        st.session_state.jarvis_messages.append(
+            {"role": "user", "content": user_prompt}
         )
 
-        with st.chat_message("user", avatar="🙂"):
-            st.markdown(prompt)
+        with st.chat_message("user"):
+            st.markdown(user_prompt)
 
-        with st.chat_message("assistant", avatar="🤖"):
+        with st.chat_message("assistant"):
             with st.spinner("Jarvis is thinking..."):
-                try:
-                    answer = ask_jarvis(
-                        prompt,
-                        business_context,
-                    )
-                except RuntimeError as exc:
-                    answer = str(exc)
+                answer = ask_jarvis(
+                    st.session_state.jarvis_messages
+                )
+            st.markdown(answer)
 
-                st.markdown(answer)
+        st.session_state.jarvis_messages.append(
+            {"role": "assistant", "content": answer}
+        )
 
-        st.session_state.chat_history.append(
+    if st.button("🗑️ Clear chat"):
+        st.session_state.jarvis_messages = [
             {
                 "role": "assistant",
-                "content": answer,
+                "content": (
+                    "Hello! I'm Jarvis, our GLOW NEST business assistant. "
+                    "What would you like help with today?"
+                ),
             }
-        )
-
-
-# -------------------- PROFIT --------------------
-elif page == "Profit Studio":
-    st.markdown("### The numbers behind the glow")
+        ]
+        st.rerun()
 
     st.caption(
-        "Estimate candle profit before rent, packaging, delivery, "
-        "tax, and other overheads."
+        "AI suggestions may be incorrect. Review important decisions "
+        "before using them in our business."
     )
 
-    if products:
-        selected = st.selectbox(
-            "Choose a candle",
-            [product["name"] for product in products],
-        )
 
-        product = next(
-            product
-            for product in products
-            if product["name"] == selected
-        )
+# ==========================================================
+# 14. PROFIT CALCULATOR PAGE
+# ==========================================================
 
-        c1, c2 = st.columns(2)
+def show_profit_calculator():
+    page_title(
+        "SMART BUSINESS TOOLS",
+        "Profit calculator",
+        "Calculate candle profits and estimate earnings for our business.",
+    )
 
-        selling = c1.number_input(
-            "Selling price (€)",
+    st.markdown("### 🧮 Calculate profit per candle")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        selling_price = st.number_input(
+            "Selling price per candle (€)",
             min_value=0.0,
-            value=float(product.get("price", 0)),
+            value=18.0,
             step=0.5,
         )
 
-        cost = c2.number_input(
-            "Making cost (€)",
+        material_cost = st.number_input(
+            "Materials cost (€)",
             min_value=0.0,
-            value=float(product.get("cost", 0)),
+            value=4.0,
             step=0.5,
         )
 
-        units = st.number_input(
-            "Units to sell",
-            min_value=1,
-            value=20,
+        packaging_cost = st.number_input(
+            "Packaging cost (€)",
+            min_value=0.0,
+            value=1.5,
+            step=0.5,
+        )
+
+    with c2:
+        labour_cost = st.number_input(
+            "Labour cost per candle (€)",
+            min_value=0.0,
+            value=1.0,
+            step=0.5,
+        )
+
+        other_cost = st.number_input(
+            "Other costs per candle (€)",
+            min_value=0.0,
+            value=0.5,
+            step=0.5,
+        )
+
+        quantity = st.number_input(
+            "Number of candles sold",
+            min_value=0,
+            value=50,
             step=1,
         )
 
-        unit_profit = selling - cost
-        total_profit = unit_profit * int(units)
+    total_unit_cost = (
+        material_cost
+        + packaging_cost
+        + labour_cost
+        + other_cost
+    )
 
-        a, b, c = st.columns(3)
+    unit_profit = selling_price - total_unit_cost
 
-        a.metric(
+    margin = (
+        unit_profit / selling_price * 100
+        if selling_price > 0
+        else 0
+    )
+
+    total_revenue = selling_price * quantity
+    total_cost = total_unit_cost * quantity
+    total_profit = unit_profit * quantity
+
+    st.markdown("---")
+    st.markdown("### 📊 Our estimated results")
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        metric_card(
             "Profit per candle",
-            euro(unit_profit),
+            money(unit_profit),
+            "Selling price minus unit costs",
+            "🕯️",
         )
 
-        b.metric(
-            "Estimated total profit",
-            euro(total_profit),
-        )
-
-        c.metric(
+    with c2:
+        metric_card(
             "Profit margin",
-            f"{unit_profit / selling * 100:.1f}%"
-            if selling
-            else "0.0%",
+            f"{margin:.1f}%",
+            "Profit as a percentage of selling price",
+            "📈",
         )
 
-        if unit_profit < 0:
-            st.warning(
-                "Your making cost is higher than your selling price."
-            )
-        else:
-            st.success(
-                "Estimate only — excludes other business expenses."
-            )
+    with c3:
+        metric_card(
+            "Estimated total profit",
+            money(total_profit),
+            f"For {quantity} candles",
+            "💰",
+        )
 
+    st.markdown("---")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("#### Revenue and costs")
+        st.write(f"**Total revenue:** {money(total_revenue)}")
+        st.write(f"**Total costs:** {money(total_cost)}")
+        st.write(f"**Estimated profit:** {money(total_profit)}")
+
+    with c2:
+        st.markdown("#### Cost breakdown per candle")
+        st.write(f"Materials: {money(material_cost)}")
+        st.write(f"Packaging: {money(packaging_cost)}")
+        st.write(f"Labour: {money(labour_cost)}")
+        st.write(f"Other costs: {money(other_cost)}")
+        st.write(f"**Total unit cost:** {money(total_unit_cost)}")
+
+    if unit_profit < 0:
+        st.error(
+            "Our candle is making a loss. Consider reducing costs "
+            "or reviewing the selling price."
+        )
+    elif unit_profit == 0:
+        st.warning("Our candle is breaking even.")
     else:
-        st.info("Add a product first.")
+        st.success(
+            "Our candle is profitable based on the costs entered."
+        )
+
+    st.caption(
+        "This estimate excludes taxes, delivery charges, and other costs "
+        "unless you include them above."
+    )
 
 
-# -------------------- FOOTER --------------------
-st.markdown("---")
+# ==========================================================
+# 15. MAIN APP ROUTER
+# ==========================================================
+
+current_page = st.session_state.page
+
+if current_page == "Overview":
+    show_overview()
+
+elif current_page == "Products":
+    show_products()
+
+elif current_page == "Orders":
+    show_orders()
+
+elif current_page == "Our Team":
+    show_team()
+
+elif current_page == "Jarvis AI":
+    show_jarvis()
+
+elif current_page == "Profit Calculator":
+    show_profit_calculator()
+
+else:
+    show_overview()
+
+
+# ==========================================================
+# 16. FOOTER
+# ==========================================================
 
 st.markdown(
-    "<div style='display:flex;justify-content:space-between;"
-    "gap:10px;flex-wrap:wrap;color:#b9c5d5;font-size:.78rem'>"
-    "<span>GLOW NEST · THE CANDLE BUSINESS STUDIO</span>"
-    "<span>Handcrafted candles. Beautiful moments.</span></div>",
+    """
+    <div class="footer">
+        🕯️ GLOW NEST · Our Business, Our Passion · Made with care
+    </div>
+    """,
     unsafe_allow_html=True,
 )
