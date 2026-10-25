@@ -23,7 +23,7 @@ DATA_FILE = Path(__file__).with_name("glow_nest_data.json")
 
 # Existing Jarvis API configuration — unchanged
 AI_URL = "https://openrouter.ai/api/v1/chat/completions"
-AI_MODEL = "qwen/qwen3-4b:free"
+AI_MODEL = "openrouter/free"
 
 try:
     OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
