@@ -26,7 +26,10 @@ DATA_FILE = Path(__file__).with_name("glow_nest_data.json")
 # Paste your NEW OpenRouter API key between the quotes.
 # Do not upload this key to a public GitHub repository.
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+try:
+    OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
+except Exception:
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 JARVIS_MODEL = "qwen/qwen3-4b:free"
 JARVIS_URL = "https://openrouter.ai/api/v1/chat/completions"
